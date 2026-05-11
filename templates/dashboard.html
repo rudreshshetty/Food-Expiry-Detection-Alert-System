@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Food Expiry Detection System{% endblock %}
+
+{% block content %}
+{% set total_status = summary['Fresh'] + summary['Expiring Soon'] + summary['Expired'] %}
+{% set ml_total = ml_summary['Safe'] + ml_summary['Consume Soon'] + ml_summary['High Risk'] + ml_summary['Unknown'] %}
+{% set storage_total = storage_values|sum %}
+{% set alert_popup = namespace(one_day_count=0) %}
+{% for item in expiring_soon_items %}
+    {% if item.days_left <= 1 %}
+        {% set alert_popup.one_day_count = alert_popup.one_day_count + 1 %}
+    {% endif %}
+{% endfor %}
+{% set hide_alert_popup = request.args.get('hide_alert_popup') %}
+{% set alert_popup_count = expired_items|length + alert_popup.one_day_count + high_risk_items|length %}
+
+<section class="dashboard-hero">
+    <div>
+        <p class="eyebrow">AI Inventory Intelligence</p>
+        <h1>Dashboard</h1>
+        <p class="hero-copy">Monitor freshness, spoilage risk, storage impact, and expiry trends in one analytics workspace.</p>
+    </div>
+    <div class="hero-date">
+        <i class="bi bi-calendar2-check"></i>
+        <span>{{ current_date }}</span>
+    </div>
+</section>
+
+<section class="kpi-cards-grid">
+    <article class="kpi-card kpi-fresh">
+        <div class="kpi-icon"><i class="bi bi-leaf-fill"></i></div>
+        <div class="kpi-content">
+            <h3>Fresh Items</h3>
+            <div class="kpi-value">{{ summary['Fresh'] }}</div>
+            <small>{{ ((summary['Fresh'] / (total_status + 0.001)) * 100)|round(1) }}% inventory health</small>
+        </div>
+    </article>
+
+    <article class="kpi-card kpi-expiring">
+        <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+        <div class="kpi-content">
+            <h3>Expiring Soon</h3>
+            <div class="kpi-value">{{ summary['Expiring Soon'] }}</div>
+            <small>{{ ((summary['Expiring Soon'] / (total_status + 0.001)) * 100)|round(1) }}% need attention</small>
+        </div>
+    </article>
+
+    <article class="kpi-card kpi-expired">
+        <div class="kpi-icon"><i class="bi bi-x-circle-fill"></i></div>
+        <div class="kpi-content">
+            <h3>Expired</h3>
+            <div class="kpi-value">{{ summary['Expired'] }}</div>
+            <small>{{ ((summary['Expired'] / (total_status + 0.001)) * 100)|round(1) }}% waste risk</small>
+        </div>
+    </article>
+
+    <article class="kpi-card kpi-high-risk">
+        <div class="kpi-icon"><i class="bi bi-exclamation-diamond-fill"></i></div>
+        <div class="kpi-content">
+            <h3>High Risk</h3>
+            <div class="kpi-value">{{ ml_summary['High Risk'] }}</div>
+            <small>{{ ((ml_summary['High Risk'] / (ml_total + 0.001)) * 100)|round(1) }}% ML risk</small>
+        </div>
+    </article>
+</section>
+
+<section class="analytics-grid">
+    <article class="chart-card chart-card-wide">
+        <div class="panel-heading">
+            <div>
+                <p>Trend Analysis</p>
+                <h3>Expiry Timeline</h3>
+            </div>
+            <i class="bi bi-activity"></i>
+        </div>
+        <canvas id="timelineChart"></canvas>
+    </article>
+
+    <article class="chart-card">
+        <div class="panel-heading">
+            <div>
+                <p>Inventory Health</p>
+                <h3>Status Distribution</h3>
+            </div>
+            <i class="bi bi-pie-chart"></i>
+        </div>
+        <canvas id="statusChart"></canvas>
+    </article>
+
+    <article class="chart-card chart-card-wide">
+        <div class="panel-heading">
+            <div>
+                <p>Category Risk Intelligence</p>
+                <h3>Category Overview</h3>
+            </div>
+            <i class="bi bi-bar-chart"></i>
+        </div>
+        <canvas id="categoryChart"></canvas>
+    </article>
+
+    <article class="chart-card">
+        <div class="panel-heading">
+            <div>
+                <p>Urgency Band</p>
+                <h3>Days Remaining</h3>
+            </div>
+            <i class="bi bi-clock-history"></i>
+        </div>
+        <canvas id="daysChart"></canvas>
+    </article>
+</section>
+
+<section class="insight-grid">
+    <article class="chart-card ai-insight-panel">
+        <div class="panel-heading">
+            <div>
+                <p>ML Insight Widget</p>
+                <h3>AI Prediction Panel</h3>
+            </div>
+            <i class="bi bi-stars"></i>
+        </div>
+        <div class="ai-insight-body">
+            <div class="ai-score">{{ ml_summary['High Risk'] + ml_summary['Consume Soon'] }}</div>
+            <div>
+                <h4>Items Need AI Attention</h4>
+                <p>The model combines item age and storage temperature to flag food that may spoil before its listed date.</p>
+            </div>
+        </div>
+        <a class="insight-action" href="{{ url_for('alerts') }}">
+            Review alerts <i class="bi bi-arrow-right"></i>
+        </a>
+    </article>
+
+    <article class="chart-card storage-panel">
+        <div class="panel-heading">
+            <div>
+                <p>Storage Condition Impact</p>
+                <h3>Environment Analysis</h3>
+            </div>
+            <i class="bi bi-thermometer-half"></i>
+        </div>
+        <div class="radial-grid">
+            {% for label in storage_labels %}
+            {% set value = storage_values[loop.index0] %}
+            {% set percent = ((value / (storage_total + 0.001)) * 100)|round(0) %}
+            <div class="radial-item">
+                <div class="radial-progress" style="--value: {{ percent }};">
+                    <span>{{ percent|int }}%</span>
+                </div>
+                <p>{{ label }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="chart-card high-risk-panel">
+        <div class="panel-heading">
+            <div>
+                <p>Priority Queue</p>
+                <h3>Top High Risk Items</h3>
+            </div>
+            <i class="bi bi-shield-exclamation"></i>
+        </div>
+        {% if top_high_risk_items %}
+        <div class="high-risk-list">
+            {% for item in top_high_risk_items[:5] %}
+            <div class="risk-item">
+                <div class="risk-info">
+                    <strong>{{ item.name }}</strong>
+                    <small>{{ item.category }} · {{ item.days_left }} days left</small>
+                </div>
+                <div class="risk-badge">{{ item.ml_status }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-check-circle"></i>
+            <span>No high risk items right now</span>
+        </div>
+        {% endif %}
+    </article>
+</section>
+
+{% if alert_popup_count > 0 and not hide_alert_popup %}
+<div class="alert-popup-backdrop" id="loginAlertPopup" role="dialog" aria-modal="true" aria-labelledby="loginAlertTitle">
+    <div class="alert-popup">
+        <button class="alert-popup-close" type="button" aria-label="Close alert popup" data-close-alert-popup>
+            <i class="bi bi-x-lg"></i>
+        </button>
+        <div class="alert-popup-header">
+            <div class="alert-popup-icon">
+                <i class="bi bi-bell-fill"></i>
+            </div>
+            <div>
+                <p class="eyebrow">Food Expiry Alert</p>
+                <h2 id="loginAlertTitle">Immediate Attention Needed</h2>
+                <span>{{ alert_popup_count }} alert{{ 's' if alert_popup_count != 1 else '' }} found after login</span>
+            </div>
+        </div>
+
+        <div class="alert-popup-list">
+            {% for item in expired_items %}
+            <div class="alert-popup-item alert-popup-danger">
+                <i class="bi bi-x-circle-fill"></i>
+                <div>
+                    <strong>{{ item.name }}</strong>
+                    <span>Expired {{ -item.days_left }} day{{ 's' if -item.days_left != 1 else '' }} ago · {{ item.category }}</span>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% for item in expiring_soon_items %}
+            {% if item.days_left <= 1 %}
+            <div class="alert-popup-item alert-popup-warning">
+                <i class="bi bi-hourglass-split"></i>
+                <div>
+                    <strong>{{ item.name }}</strong>
+                    <span>
+                        {% if item.days_left == 0 %}
+                            Expires today
+                        {% else %}
+                            Expires tomorrow
+                        {% endif %}
+                        · {{ item.category }}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {% for item in high_risk_items %}
+            <div class="alert-popup-item alert-popup-risk">
+                <i class="bi bi-exclamation-diamond-fill"></i>
+                <div>
+                    <strong>{{ item.name }}</strong>
+                    <span>ML high-risk prediction · {{ item.category }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="alert-popup-actions">
+            <a href="{{ url_for('alerts') }}" class="insight-action">Open alerts <i class="bi bi-arrow-right"></i></a>
+            <button type="button" class="alert-popup-secondary" data-close-alert-popup>Dismiss</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const loginAlertPopup = document.getElementById('loginAlertPopup');
+    if (loginAlertPopup) {
+        document.querySelectorAll('[data-close-alert-popup]').forEach((button) => {
+            button.addEventListener('click', () => {
+                loginAlertPopup.classList.add('is-hidden');
+            });
+        });
+    }
+
+    Chart.defaults.color = '#9fb0d0';
+    Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.14)';
+    Chart.defaults.font.family = "'Poppins', sans-serif";
+
+    const statusCtx = document.getElementById('statusChart');
+    if (statusCtx) {
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Fresh', 'Expiring Soon', 'Expired'],
+                datasets: [{
+                    data: [{{ summary['Fresh'] }}, {{ summary['Expiring Soon'] }}, {{ summary['Expired'] }}],
+                    backgroundColor: ['#2ed573', '#ffc107', '#ff5c77'],
+                    borderColor: '#111a2d',
+                    borderWidth: 5,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '64%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, boxWidth: 8, padding: 18 }
+                    }
+                }
+            }
+        });
+    }
+
+    const timelineCtx = document.getElementById('timelineChart');
+    if (timelineCtx) {
+        new Chart(timelineCtx, {
+            type: 'line',
+            data: {
+                labels: {{ expiry_timeline_labels|tojson }},
+                datasets: [{
+                    label: 'Expiring Items',
+                    data: {{ expiry_timeline_values|tojson }},
+                    borderColor: '#00c8ff',
+                    backgroundColor: 'rgba(0, 200, 255, 0.14)',
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#00c8ff',
+                    pointRadius: 4,
+                    tension: 0.42,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }
+
+    const daysCtx = document.getElementById('daysChart');
+    if (daysCtx) {
+        new Chart(daysCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ days_distribution_labels|tojson }},
+                datasets: [{
+                    label: 'Items',
+                    data: {{ days_distribution_values|tojson }},
+                    backgroundColor: ['#ff5c77', '#ffc107', '#2ed573'],
+                    borderRadius: 10,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    const categoryCtx = document.getElementById('categoryChart');
+    if (categoryCtx) {
+        new Chart(categoryCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ category_labels|tojson }},
+                datasets: [
+                    {
+                        label: 'Safe',
+                        data: [{% for label in category_labels %}{{ category_risk.get(label, {}).get('Safe', 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+                        backgroundColor: '#2ed573',
+                        borderRadius: 8
+                    },
+                    {
+                        label: 'Consume Soon',
+                        data: [{% for label in category_labels %}{{ category_risk.get(label, {}).get('Consume Soon', 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+                        backgroundColor: '#ffc107',
+                        borderRadius: 8
+                    },
+                    {
+                        label: 'High Risk',
+                        data: [{% for label in category_labels %}{{ category_risk.get(label, {}).get('High Risk', 0) }}{% if not loop.last %},{% endif %}{% endfor %}],
+                        backgroundColor: '#ff5c77',
+                        borderRadius: 8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, boxWidth: 8, padding: 18 }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

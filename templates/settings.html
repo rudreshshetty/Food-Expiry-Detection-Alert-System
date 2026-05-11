@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Settings | Food Expiry System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-card {
+        border-radius: 15px;
+        padding: 24px;
+        border: 1px solid #e9ecef;
+        background: #fff;
+    }
+    .settings-card h4 {
+        margin-bottom: 20px;
+        font-weight: 700;
+        color: #1e3c72;
+    }
+    .settings-section {
+        margin-bottom: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-secondary mb-1">Configuration</p>
+    <h1>Settings</h1>
+    <p>Customize your preferences and notification settings.</p>
+</div>
+
+<form method="POST" action="{{ url_for('save_settings') }}">
+    <div class="row g-4">
+        <!-- Profile Section -->
+        <div class="col-lg-6">
+            <div class="settings-card">
+                <h4>👤 Profile</h4>
+                
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" name="username" value="{{ current_user.username }}" placeholder="Your username">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Phone Number (for SMS)</label>
+                    <input type="tel" class="form-control" name="phone" value="{{ settings.phone }}" placeholder="+1 (555) 123-4567">
+                    <small class="text-muted">Format: +1234567890</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">New Password</label>
+                    <input type="password" class="form-control" name="password" placeholder="Leave blank to keep current password">
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Section -->
+        <div class="col-lg-6">
+            <div class="settings-card">
+                <h4>🔔 Alert Preferences</h4>
+                
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="smsEnabled" name="sms_enabled" {{ 'checked' if settings.sms_enabled else '' }}>
+                        <label class="form-check-label" for="smsEnabled">
+                            <strong>Enable SMS Alerts</strong>
+                            <br>
+                            <small class="text-muted">Get notified via SMS for critical alerts</small>
+                        </label>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="expiredAlert" name="expired_alert" {{ 'checked' if settings.expired_alert else '' }}>
+                        <label class="form-check-label" for="expiredAlert">
+                            <strong>Expired Item Alerts</strong>
+                            <br>
+                            <small class="text-muted">Alert when items have passed expiry date</small>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="expiringAlert" name="expiring_alert" {{ 'checked' if settings.expiring_alert else '' }}>
+                        <label class="form-check-label" for="expiringAlert">
+                            <strong>Expiring Soon Alerts</strong>
+                            <br>
+                            <small class="text-muted">Alert when items are about to expire</small>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="mlAlert" name="ml_alert" {{ 'checked' if settings.ml_alert else '' }}>
+                        <label class="form-check-label" for="mlAlert">
+                            <strong>High-Risk Prediction Alerts</strong>
+                            <br>
+                            <small class="text-muted">Alert based on ML shelf-life predictions</small>
+                        </label>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="mb-0">
+                    <label class="form-label" for="alertDays"><strong>Alert Window</strong></label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="alertDays" name="alert_days" min="1" max="14" value="{{ settings.alert_days }}">
+                        <span class="input-group-text">days before expiry</span>
+                    </div>
+                    <small class="text-muted">How many days in advance to alert for expiring items</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-2">
+        <!-- ML & Prediction Settings -->
+        <div class="col-lg-6">
+            <div class="settings-card">
+                <h4>🤖 ML Prediction Settings</h4>
+                
+                <div class="mb-3">
+                    <label class="form-label" for="storageMode"><strong>Default Storage Mode</strong></label>
+                    <select class="form-select" id="storageMode" name="storage_mode">
+                        <option value="Fridge" {{ 'selected' if settings.storage_mode == 'Fridge' else '' }}>🧊 Refrigerator (0-8°C)</option>
+                        <option value="Freezer" {{ 'selected' if settings.storage_mode == 'Freezer' else '' }}>❄️ Freezer (-18°C)</option>
+                        <option value="Pantry" {{ 'selected' if settings.storage_mode == 'Pantry' else '' }}>📦 Pantry (20-25°C)</option>
+                    </select>
+                    <small class="text-muted">Used for automatic temperature suggestions when adding items</small>
+                </div>
+
+                <div class="p-3 bg-light rounded">
+                    <h6 class="mb-2">📊 How ML Predictions Work:</h6>
+                    <ul class="small text-muted mb-0">
+                        <li>Analyzes purchase date and storage temperature</li>
+                        <li>Predicts actual shelf-life remaining</li>
+                        <li>Classifies items as Safe, Consume Soon, or High Risk</li>
+                        <li>Improves accuracy with more data</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Display & Theme -->
+        <div class="col-lg-6">
+            <div class="settings-card">
+                <h4>🎨 Display & Appearance</h4>
+                
+                <div class="mb-3">
+                    <label class="form-label" for="appearance"><strong>Theme</strong></label>
+                    <select class="form-select" id="appearance" name="appearance">
+                        <option value="Light" {{ 'selected' if settings.appearance == 'Light' else '' }}>☀️ Light Mode</option>
+                        <option value="Dark" {{ 'selected' if settings.appearance == 'Dark' else '' }}>🌙 Dark Mode</option>
+                    </select>
+                    <small class="text-muted">Choose your preferred color theme</small>
+                </div>
+
+                <hr>
+
+                <div class="mb-0">
+                    <h6 class="mb-3">📋 Current Configuration:</h6>
+                    <div class="p-3 bg-light rounded">
+                        <p class="mb-2"><small><strong>SMS Status:</strong> {{ 'Enabled ✓' if settings.sms_enabled else 'Disabled ✗' }}</small></p>
+                        {% if settings.sms_enabled %}
+                        <p class="mb-2"><small><strong>SMS Phone:</strong> <code>{{ settings.phone }}</code></small></p>
+                        {% endif %}
+                        <p class="mb-2"><small><strong>Alert Window:</strong> {{ settings.alert_days }} days</small></p>
+                        <p class="mb-0"><small><strong>Storage Mode:</strong> {{ settings.storage_mode }}</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Button -->
+    <div class="mt-4 text-end">
+        <button type="submit" class="btn btn-primary btn-lg">💾 Save Settings</button>
+    </div>
+</form>
+
+<!-- Info Cards -->
+<div class="row g-3 mt-4">
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <h5>📱 SMS Alerts</h5>
+            <p class="small text-muted mb-0">When enabled, you'll receive SMS notifications for expired items and expiring soon notifications. Make sure your phone number is correct.</p>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <h5>🤖 ML Predictions</h5>
+            <p class="small text-muted mb-0">Machine learning models predict shelf-life based on storage conditions and purchase history. Enable alerts to get smart risk assessments.</p>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <h5>⚙️ Customization</h5>
+            <p class="small text-muted mb-0">Adjust alert windows, choose storage modes, and pick your theme. All settings are saved immediately to your account.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

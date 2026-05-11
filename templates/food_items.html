@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Food Items | Food Expiry System{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-secondary mb-1">Inventory</p>
+    <h1>Food Items</h1>
+    <p>View and manage all your stored food items.</p>
+</div>
+
+<div class="chart-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Your Inventory</h3>
+        <div>
+            <span class="badge bg-success me-2">Fresh: {{ summary['Fresh'] }}</span>
+            <span class="badge bg-warning me-2">Expiring: {{ summary['Expiring Soon'] }}</span>
+            <span class="badge bg-danger">Expired: {{ summary['Expired'] }}</span>
+        </div>
+    </div>
+    
+    {% if items %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Expiry Date</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Days Left</th>
+                    <th>Temp (°C)</th>
+                    <th>Predicted Days</th>
+                    <th>Risk Level</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.expiry_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ item.category or 'Uncategorized' }}</td>
+                    <td>
+                        {% if item.status == 'Fresh' %}
+                            <span class="badge bg-success">Fresh</span>
+                        {% elif item.status == 'Expiring Soon' %}
+                            <span class="badge bg-warning">Expiring Soon</span>
+                        {% else %}
+                            <span class="badge bg-danger">Expired</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.days_left >= 0 %}
+                            <span class="text-success">{{ item.days_left }}</span>
+                        {% else %}
+                            <span class="text-danger">{{ item.days_left }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.storage_temp or '-' }}</td>
+                    <td>{{ item.predicted_days if item.predicted_days is not none else '-' }}</td>
+                    <td>
+                        {% if item.ml_status == 'High Risk' %}
+                            <span class="badge bg-danger">High Risk</span>
+                        {% elif item.ml_status == 'Consume Soon' %}
+                            <span class="badge bg-warning">Consume Soon</span>
+                        {% elif item.ml_status == 'Safe' %}
+                            <span class="badge bg-success">Safe</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Unknown</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-danger" href="{{ url_for('delete_item', item_id=item.id) }}">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <p class="text-muted mb-3">No food items yet.</p>
+        <a href="{{ url_for('add_item_page') }}" class="btn btn-primary">Add Your First Item</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

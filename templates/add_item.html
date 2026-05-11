@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Add Food Item | Food Expiry System{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-secondary mb-1">Inventory</p>
+    <h1>Add New Food Item</h1>
+    <p>Track a new food item in your inventory.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="chart-card">
+            <h3>Add Item Details</h3>
+            <form method="POST" action="{{ url_for('add_item') }}">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="name">Food Name</label>
+                        <input class="form-control" type="text" id="name" name="name" placeholder="e.g., Milk, Chicken, Cheese" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="category">Category</label>
+                        <select class="form-select" id="category" name="category" required>
+                            <option value="">Select Category</option>
+                            <option value="Dairy">Dairy</option>
+                            <option value="Fruits">Fruits</option>
+                            <option value="Vegetables">Vegetables</option>
+                            <option value="Beverages">Beverages</option>
+                            <option value="Meat">Meat</option>
+                            <option value="Seafood">Seafood</option>
+                            <option value="Pantry">Pantry</option>
+                            <option value="Frozen">Frozen</option>
+                            <option value="Grocery">Grocery</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <label class="form-label" for="expiry_date">Expiry Date</label>
+                        <input class="form-control" type="date" id="expiry_date" name="expiry_date" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="days_since_purchase">Days Since Purchase</label>
+                        <input class="form-control" type="number" id="days_since_purchase" name="days_since_purchase" min="0" value="1" required>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-12">
+                        <label class="form-label" for="storage_temp">Storage Temperature (°C)</label>
+                        <input class="form-control" type="number" id="storage_temp" name="storage_temp" min="-10" max="50" step="0.1" placeholder="Leave empty to auto-select based on category">
+                        <small class="text-muted">Typical: Dairy 5°C | Vegetables 8°C | Room Temp 25°C</small>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-primary btn-lg">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <h3>Category Temps</h3>
+            <ul class="list-unstyled">
+                <li class="mb-3"><strong>🥛 Dairy</strong> <br> <code>5°C</code> (Refrigerated)</li>
+                <li class="mb-3"><strong>🍎 Fruits</strong> <br> <code>8°C</code> (Cool)</li>
+                <li class="mb-3"><strong>🥦 Vegetables</strong> <br> <code>8°C</code> (Cool)</li>
+                <li class="mb-3"><strong>🥤 Beverages</strong> <br> <code>10°C</code> (Cool)</li>
+                <li class="mb-3"><strong>🍖 Meat</strong> <br> <code>0°C</code> (Freezer)</li>
+                <li class="mb-3"><strong>🦞 Seafood</strong> <br> <code>0°C</code> (Freezer)</li>
+                <li class="mb-3"><strong>📦 Pantry</strong> <br> <code>20°C</code> (Dry)</li>
+                <li><strong>❄️ Frozen</strong> <br> <code>-18°C</code> (Frozen)</li>
+            </ul>
+        </div>
+
+        <div class="chart-card mt-3">
+            <h3>📋 Tips</h3>
+            <ul class="list-unstyled text-muted small">
+                <li class="mb-2">✓ Use accurate expiry dates for better predictions</li>
+                <li class="mb-2">✓ Set storage temp to improve shelf-life calculations</li>
+                <li class="mb-2">✓ Days since purchase helps ML model predict shelf-life</li>
+                <li>✓ You can edit items later from Food Items page</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

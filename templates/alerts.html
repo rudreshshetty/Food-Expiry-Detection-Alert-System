@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts | Food Expiry System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .alert-card {
+        border-radius: 15px;
+        padding: 20px;
+        border-left: 5px solid;
+    }
+    .alert-card.expired {
+        background: #fee;
+        border-left-color: #dc3545;
+    }
+    .alert-card.expiring {
+        background: #ffeaa7;
+        border-left-color: #ffc107;
+    }
+    .alert-card.high-risk {
+        background: #e7f3ff;
+        border-left-color: #0066cc;
+    }
+    .badge-count {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-secondary mb-1">Notifications</p>
+    <h1>Smart Alerts</h1>
+    <p>Real-time warnings for expiring and risky food items.</p>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="alert-card expired">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="text-danger">❌ Expired Items</h5>
+                    <p class="text-muted mb-0">Items past expiry date</p>
+                </div>
+                <span class="badge-count text-danger">{{ expired_items|length }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="alert-card expiring">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="text-warning">⚠️ Expiring Soon</h5>
+                    <p class="text-muted mb-0">Expires in next {{ settings.alert_days }} days</p>
+                </div>
+                <span class="badge-count text-warning">{{ expiring_soon_items|length }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="alert-card high-risk">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="text-primary">🚨 High Risk</h5>
+                    <p class="text-muted mb-0">ML-predicted risk items</p>
+                </div>
+                <span class="badge-count text-primary">{{ high_risk_items|length }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Expired Items -->
+<div class="chart-card mb-4">
+    <h3>❌ Expired Items ({{ expired_items|length }})</h3>
+    {% if expired_items %}
+        <div class="row g-3">
+            {% for item in expired_items %}
+            <div class="col-md-6">
+                <div class="border rounded p-3 bg-light">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="mb-1">{{ item.name }}</h5>
+                            <small class="text-muted">{{ item.category }}</small>
+                        </div>
+                        <span class="badge bg-danger">Expired</span>
+                    </div>
+                    <p class="mb-2">
+                        <strong>Expiry:</strong> {{ item.expiry_date.strftime('%Y-%m-%d') }}<br>
+                        <strong>Days Ago:</strong> <span class="text-danger">{{ -item.days_left }} day{{ 's' if -item.days_left != 1 else '' }}</span>
+                    </p>
+                    <button class="btn btn-sm btn-outline-danger" onclick="markAlert(this)">Mark as Checked</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <p>✅ No expired items found. Your inventory is good!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Expiring Soon Items -->
+<div class="chart-card mb-4">
+    <h3>⚠️ Expiring Soon ({{ expiring_soon_items|length }})</h3>
+    {% if expiring_soon_items %}
+        <div class="row g-3">
+            {% for item in expiring_soon_items %}
+            <div class="col-md-6">
+                <div class="border rounded p-3 bg-light">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="mb-1">{{ item.name }}</h5>
+                            <small class="text-muted">{{ item.category }}</small>
+                        </div>
+                        <span class="badge bg-warning">Expiring Soon</span>
+                    </div>
+                    <p class="mb-2">
+                        <strong>Expiry:</strong> {{ item.expiry_date.strftime('%Y-%m-%d') }}<br>
+                        <strong>Days Left:</strong> <span class="text-warning">{{ item.days_left }} day{{ 's' if item.days_left != 1 else '' }}</span>
+                    </p>
+                    <button class="btn btn-sm btn-outline-warning" onclick="markAlert(this)">Mark as Checked</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <p>✅ No items expiring soon.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- High Risk Items -->
+<div class="chart-card mb-4">
+    <h3>🚨 High Risk Items ({{ high_risk_items|length }})</h3>
+    {% if high_risk_items %}
+        <div class="row g-3">
+            {% for item in high_risk_items %}
+            <div class="col-md-6">
+                <div class="border rounded p-3 bg-light">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="mb-1">{{ item.name }}</h5>
+                            <small class="text-muted">{{ item.category }}</small>
+                        </div>
+                        <span class="badge bg-danger">High Risk</span>
+                    </div>
+                    <p class="mb-2">
+                        <strong>Reason:</strong> ML predicted high risk based on storage<br>
+                        <strong>Predicted Days:</strong> {{ item.predicted_days if item.predicted_days is not none else '-' }}<br>
+                        <strong>Expiry:</strong> {{ item.expiry_date.strftime('%Y-%m-%d') }}
+                    </p>
+                    <button class="btn btn-sm btn-outline-danger" onclick="markAlert(this)">Mark as Checked</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <p>✅ No high-risk items detected. Your storage conditions are optimal!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- SMS Alert Log -->
+{% if settings.sms_enabled %}
+<div class="chart-card">
+    <h3>📩 SMS Alert Log</h3>
+    {% if sms_log %}
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                        <th>Sent To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in sms_log %}
+                    <tr>
+                        <td><strong>{{ log.name }}</strong></td>
+                        <td><span class="badge bg-success">{{ log.status }}</span></td>
+                        <td>{{ log.message }}</td>
+                        <td><code>{{ settings.phone }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+    <div class="text-center py-4 text-muted">
+        No SMS alerts sent yet.
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function markAlert(button) {
+        const parent = button.closest('.border');
+        parent.style.opacity = '0.5';
+        button.disabled = true;
+        button.textContent = '✓ Checked';
+        button.classList.remove('btn-outline-danger', 'btn-outline-warning');
+        button.classList.add('btn-secondary');
+    }
+</script>
+{% endblock %}

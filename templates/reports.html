@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Reports | Food Expiry System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .summary-card {
+        border-radius: 18px;
+        min-height: 135px;
+        color: #fff;
+        padding: 24px;
+    }
+    .chart-card h3 {
+        font-size: 1.05rem;
+        margin-bottom: 18px;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p class="text-secondary mb-1">Analytics</p>
+    <h1>Reports & Analytics</h1>
+    <p>Detailed insights into your food inventory and waste patterns.</p>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="summary-card bg-success">
+            <h5>Total Items</h5>
+            <h2>{{ total_items }}</h2>
+            <small>In your inventory</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="summary-card bg-danger">
+            <h5>Expired Items</h5>
+            <h2>{{ expired_items_count }}</h2>
+            <small>{{ waste_percentage }}% waste</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="summary-card bg-warning">
+            <h5>Expiring Soon</h5>
+            <h2>{{ summary['Expiring Soon'] }}</h2>
+            <small>Next {{ settings.alert_days }} days</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="summary-card bg-primary">
+            <h5>High Risk Items</h5>
+            <h2>{{ ml_summary['High Risk'] }}</h2>
+            <small>By ML prediction</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="chart-card h-100">
+            <h3>Status Distribution</h3>
+            <canvas id="statusChart" height="240"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="chart-card h-100">
+            <h3>Expiry Timeline</h3>
+            <canvas id="timelineChart" height="240"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="chart-card h-100">
+            <h3>Category Distribution</h3>
+            <canvas id="categoryChart" height="240"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="chart-card h-100">
+            <h3>ML Risk Assessment</h3>
+            <canvas id="mlChart" height="240"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-8">
+        <div class="chart-card h-100">
+            <h3>Weekly Waste Trend</h3>
+            <canvas id="weeklyChart" height="240"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="chart-card h-100">
+            <h3>Storage Condition Impact</h3>
+            <canvas id="storageChart" height="240"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="chart-card mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Top High-Risk Items</h3>
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="downloadReport()">Export Report</button>
+    </div>
+    {% if top_high_risk_items %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Category</th>
+                    <th>Expiry Date</th>
+                    <th>Days Left</th>
+                    <th>Risk Level</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in top_high_risk_items %}
+                <tr>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.expiry_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if item.days_left >= 0 %}
+                            <span class="text-success">{{ item.days_left }}</span>
+                        {% else %}
+                            <span class="text-danger">{{ item.days_left }}</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-danger">{{ item.ml_status }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-4 text-muted">
+        No high-risk items detected. Your inventory is in good condition! ✅
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const statusCtx = document.getElementById('statusChart');
+    new Chart(statusCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Fresh', 'Expiring Soon', 'Expired'],
+            datasets: [{
+                data: [{{ summary['Fresh'] }}, {{ summary['Expiring Soon'] }}, {{ summary['Expired'] }}],
+                backgroundColor: ['#4CAF50', '#FFB300', '#E53935'],
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const timelineCtx = document.getElementById('timelineChart');
+    new Chart(timelineCtx, {
+        type: 'line',
+        data: {
+            labels: {{ expiry_timeline_labels|tojson }},
+            datasets: [{
+                label: 'Items Expiring',
+                data: {{ expiry_timeline_values|tojson }},
+                borderColor: '#E53935',
+                backgroundColor: 'rgba(229, 57, 53, 0.2)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const categoryCtx = document.getElementById('categoryChart');
+    new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ category_labels|tojson }},
+            datasets: [{
+                data: {{ category_values|tojson }},
+                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#FF6384']
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const mlCtx = document.getElementById('mlChart');
+    new Chart(mlCtx, {
+        type: 'radar',
+        data: {
+            labels: ['Safe', 'Consume Soon', 'High Risk', 'Unknown'],
+            datasets: [{
+                label: 'ML Predictions',
+                data: [{{ ml_summary['Safe'] }}, {{ ml_summary['Consume Soon'] }}, {{ ml_summary['High Risk'] }}, {{ ml_summary['Unknown'] }}],
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                borderColor: '#3B82F6',
+                borderWidth: 2
+            }]
+        },
+        options: { responsive: true, scales: { r: { beginAtZero: true } } }
+    });
+
+    const weeklyCtx = document.getElementById('weeklyChart');
+    new Chart(weeklyCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ week_report_labels|tojson }},
+            datasets: [{
+                label: 'Expired Items',
+                data: {{ week_report_values|tojson }},
+                backgroundColor: '#E53935'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const storageCtx = document.getElementById('storageChart');
+    new Chart(storageCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ storage_labels | tojson }},
+            datasets: [{
+                data: {{ storage_values | tojson }},
+                backgroundColor: ['#34d399', '#60a5fa', '#f97316']
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    function downloadReport() {
+        const report = `
+FOOD EXPIRY DETECTION & ALERT SYSTEM
+Report Generated: {{ current_date }}
+User: {{ current_user.username }}
+
+=== SUMMARY ===
+Total Items: {{ total_items }}
+Fresh Items: {{ summary['Fresh'] }}
+Expiring Soon: {{ summary['Expiring Soon'] }}
+Expired Items: {{ summary['Expired'] }}
+Waste Percentage: {{ waste_percentage }}%
+
+=== ML PREDICTIONS ===
+Safe Items: {{ ml_summary['Safe'] }}
+Consume Soon: {{ ml_summary['Consume Soon'] }}
+High Risk: {{ ml_summary['High Risk'] }}
+Unknown: {{ ml_summary['Unknown'] }}
+
+=== TOP HIGH-RISK ITEMS ===
+{% for item in top_high_risk_items %}
+- {{ item.name }} ({{ item.category }}) - Expires: {{ item.expiry_date.strftime('%Y-%m-%d') }} - Risk: {{ item.ml_status }}
+{% endfor %}
+
+=== RECOMMENDATIONS ===
+1. Review items expiring in the next {{ settings.alert_days }} days
+2. Check high-risk items for quality and safety
+3. Organize storage by temperature zones
+4. Update inventory regularly
+        `;
+        const blob = new Blob([report], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'expiry-report-' + new Date().toISOString().split('T')[0] + '.txt';
+        a.click();
+    }
+</script>
+{% endblock %}
